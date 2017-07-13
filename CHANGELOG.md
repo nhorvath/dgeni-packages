@@ -1,5 +1,40 @@
 # Changelog
 
+# 0.20.0-rc.5  13 July 2017
+
+## Bug Fixes
+
+**typescript:** remove duplicate overload from abstract API doc members	f2c481d1
+**ngdoc:** pass doc object to createDocMessage	fe98a849	Nick Horvath
+
+
+# 0.20.0-rc.4  13 July 2017
+
+## Bug Fixes
+
+**typescript:** support startingLine and endingLine properties	32698f30
+
+
+# 0.20.0-rc.3  12 July 2017
+
+## Features
+
+**typescript:** group function/method overloads together	2155b5ac
+
+## Bug Fixes
+
+**typescript:** include specified namespaces in types	dbe99f7b
+
+## Breaking Changes
+
+Previously to 0.20.0 the service where you registered namespaces not to strip
+was called `ignoreTypeScriptNamespaces` and took an array of regular expressions.
+
+Now this service is called `namespacesToInclude`, which better reflects its
+purpose. Also it is now an array of strings, since there was little benefit in it
+being a regular expression.
+
+
 # 0.20.0-rc.2  10 July 2017
 
 ## Bug Fixes
