@@ -1,4 +1,4 @@
-import { } from 'typescript';
+import { __String } from 'typescript';
 import { TsParser } from '.';
 import { getTypeParametersText } from './getTypeParametersText';
 const path = require('canonical-path');
@@ -15,11 +15,11 @@ describe('getTypeParametersText', () => {
     const parseInfo = parser.parse(['tsParser/getTypeParametersText.test.ts'], basePath);
     const moduleExports = parseInfo.moduleSymbols[0].exportArray;
 
-    const testFunction = moduleExports[0].getDeclarations()[0];
-    expect(getTypeParametersText(testFunction, [])).toEqual('<T, U, V>');
+    const testFunction = moduleExports[0].getDeclarations()![0];
+    expect(getTypeParametersText(testFunction)).toEqual('<T, U, V>');
 
     const testClass = moduleExports[1];
-    expect(getTypeParametersText(testClass.getDeclarations()[0], [])).toEqual('<T>');
-    expect(getTypeParametersText(testClass.members!.get('method')!.getDeclarations()[0], [])).toEqual('<U>');
+    expect(getTypeParametersText(testClass.getDeclarations()![0])).toEqual('<T>');
+    expect(getTypeParametersText(testClass.members!.get('method' as __String)!.getDeclarations()![0])).toEqual('<U>');
   });
 });

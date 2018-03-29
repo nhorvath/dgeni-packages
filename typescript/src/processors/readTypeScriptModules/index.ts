@@ -1,13 +1,6 @@
-const path = require('canonical-path');
 import { DocCollection, Processor } from 'dgeni';
-import { getCombinedModifierFlags, getLineAndCharacterOfPosition, ModifierFlags, Node, SourceFile, Symbol, SymbolFlags, TypeChecker } from 'typescript';
-
-import { getContent, getExportDocType, ModuleSymbols, TsParser } from '../../services/TsParser';
-import { Location } from '../../services/TsParser/Location';
-
-import { ApiDoc } from '../../api-doc-types/ApiDoc';
+import { Symbol } from 'typescript';
 import { ClassExportDoc } from '../../api-doc-types/ClassExportDoc';
-import { ClassLikeExportDoc } from '../../api-doc-types/ClassLikeExportDoc';
 import { ConstExportDoc } from '../../api-doc-types/ConstExportDoc';
 import { EnumExportDoc } from '../../api-doc-types/EnumExportDoc';
 import { ExportDoc } from '../../api-doc-types/ExportDoc';
@@ -16,12 +9,23 @@ import { InterfaceExportDoc } from '../../api-doc-types/InterfaceExportDoc';
 import { MemberDoc } from '../../api-doc-types/MemberDoc';
 import { MethodMemberDoc } from '../../api-doc-types/MethodMemberDoc';
 import { ModuleDoc } from '../../api-doc-types/ModuleDoc';
+import { ParameterDoc } from '../../api-doc-types/ParameterDoc';
+import { PropertyMemberDoc } from '../../api-doc-types/PropertyMemberDoc';
 import { TypeAliasExportDoc } from '../../api-doc-types/TypeAliasExportDoc';
 
+import { getExportDocType, ModuleSymbols, TsParser } from '../../services/TsParser';
 import { expandSourceFiles, SourcePattern } from './SourcePattern';
 
-export function readTypeScriptModules(tsParser: TsParser, modules: any, namespacesToInclude: string[], createDocMessage: any, log: any) {
-  return new ReadTypeScriptModules(tsParser, modules, namespacesToInclude, createDocMessage, log);
+// This import lacks type definitions.
+const path = require('canonical-path');
+
+export function readTypeScriptModules(
+                  tsParser: TsParser,
+                  modules: any,
+                  exportSymbolsToDocsMap: Map<Symbol, ExportDoc>,
+                  createDocMessage: any,
+                  log: any) {
+  return new ReadTypeScriptModules(tsParser, modules, exportSymbolsToDocsMap, createDocMessage, log);
 }
 
 export class ReadTypeScriptModules implements Processor {
@@ -45,13 +49,13 @@ export class ReadTypeScriptModules implements Processor {
     // We leave class members sorted in order of declaration
     sortClassMembers = false;
     // We can provide a collection of strings or regexes to ignore exports whose export names match
-    ignoreExportsMatching: Array<string|RegExp> = ['___esModule'];
-    ignoreExportsRegexes: RegExp[];
+    ignoreExportsMatching: Array<string|RegExp> = ['__esModule'];
+    ignoreExportsRegexes: RegExp[] = [];
 
     constructor(
       private tsParser: TsParser,
       private modules: any,
-      private namespacesToInclude: string[],
+      private exportSymbolsToDocsMap: Map<Symbol, ExportDoc>,
       private createDocMessage: any,
       private log: any) {}
 
@@ -70,7 +74,7 @@ export class ReadTypeScriptModules implements Processor {
       // Iterate through each of the modules to generate module docs, export docs and member docs.
       moduleSymbols.forEach(moduleSymbol => {
         // Create a doc for this module and add it to the module lookup collection and the docs collection
-        const moduleDoc = new ModuleDoc(moduleSymbol, basePath);
+        const moduleDoc = new ModuleDoc(moduleSymbol, basePath, this.hidePrivateMembers, moduleSymbols.typeChecker!);
         this.modules[moduleDoc.id] = moduleDoc;
         docs.push(moduleDoc);
         this.addExportDocs(docs, moduleDoc);
@@ -84,8 +88,11 @@ export class ReadTypeScriptModules implements Processor {
         // Ignore exports that match the configured regular expressions
         if (anyMatches(this.ignoreExportsRegexes, exportSymbol.name)) return;
 
-        // If the symbol is an alias (e.g. re-exported from another module) then get the original resolved symbol
+        // If `exportSymbol.resolvedSymbol` is defined then the symbol has been "aliased":
+        // * `exportSymbol.resolvedSymbol` holds the actual info about the symbol being exported
+        // * `exportSymbol` is the "alias" symbol, which has the new name for the symbol being exported
         const resolvedExport = exportSymbol.resolvedSymbol || exportSymbol;
+        const aliasSymbol = exportSymbol.resolvedSymbol ? exportSymbol : undefined;
 
         // If the resolved symbol contains no declarations then it is invalid (perhaps an abstract class?)
         // For the moment we are just going to ignore such exports (:scream:)
@@ -97,34 +104,38 @@ export class ReadTypeScriptModules implements Processor {
 
         switch (getExportDocType(resolvedExport)) {
           case 'class':
-            const classDoc = new ClassExportDoc(moduleDoc, resolvedExport, this.basePath, this.hidePrivateMembers, this.namespacesToInclude);
+            const classDoc = new ClassExportDoc(moduleDoc, resolvedExport, aliasSymbol);
             this.addMemberDocs(docs, classDoc.members);
             this.addMemberDocs(docs, classDoc.statics);
             if (classDoc.constructorDoc) this.addMemberDocs(docs, [classDoc.constructorDoc]);
             this.addExportDoc(docs, moduleDoc, classDoc);
             break;
           case 'interface':
-            const interfaceDoc = new InterfaceExportDoc(moduleDoc, resolvedExport, this.basePath, this.namespacesToInclude);
+            const interfaceDoc = new InterfaceExportDoc(moduleDoc, resolvedExport, aliasSymbol);
             this.addMemberDocs(docs, interfaceDoc.members);
             this.addExportDoc(docs, moduleDoc, interfaceDoc);
             break;
           case 'enum':
-            const enumDoc = new EnumExportDoc(moduleDoc, resolvedExport, this.basePath, this.namespacesToInclude);
+            const enumDoc = new EnumExportDoc(moduleDoc, resolvedExport, aliasSymbol);
             enumDoc.members.forEach(doc => docs.push(doc));
             this.addExportDoc(docs, moduleDoc, enumDoc);
             break;
           case 'const':
           case 'let':
           case 'var':
-            this.addExportDoc(docs, moduleDoc, new ConstExportDoc(moduleDoc, resolvedExport, this.basePath, this.namespacesToInclude));
+            this.addExportDoc(docs, moduleDoc, new ConstExportDoc(moduleDoc, resolvedExport, aliasSymbol));
             break;
           case 'type-alias':
-            this.addExportDoc(docs, moduleDoc, new TypeAliasExportDoc(moduleDoc, resolvedExport, this.basePath, this.namespacesToInclude));
+            this.addExportDoc(docs, moduleDoc, new TypeAliasExportDoc(moduleDoc, resolvedExport, aliasSymbol));
             break;
           case 'function':
-            const functionDoc = new FunctionExportDoc(moduleDoc, resolvedExport, this.basePath, this.namespacesToInclude);
+            const functionDoc = new FunctionExportDoc(moduleDoc, resolvedExport, aliasSymbol);
             this.addExportDoc(docs, moduleDoc, functionDoc);
-            functionDoc.overloads.forEach(doc => docs.push(doc));
+            this.addParamDocs(docs, functionDoc.parameterDocs);
+            functionDoc.overloads.forEach(overloadDoc => {
+              docs.push(overloadDoc);
+              this.addParamDocs(docs, overloadDoc.parameterDocs);
+            });
             break;
           default:
             this.log.error(`Don't know how to create export document for ${resolvedExport.name}`);
@@ -137,13 +148,31 @@ export class ReadTypeScriptModules implements Processor {
       this.log.debug('>>>> EXPORT: ' + exportDoc.name + ' (' + exportDoc.docType + ') from ' + moduleDoc.id);
       moduleDoc.exports.push(exportDoc);
       docs.push(exportDoc);
+      this.exportSymbolsToDocsMap.set(exportDoc.symbol, exportDoc);
     }
 
     private addMemberDocs(docs: DocCollection, members: MemberDoc[]) {
       members.forEach(member => {
         docs.push(member);
-        if (member instanceof MethodMemberDoc) member.overloads.forEach(overloadDoc => docs.push(overloadDoc));
+        if (member instanceof MethodMemberDoc) {
+          this.addParamDocs(docs, member.parameterDocs);
+          member.overloads.forEach(overloadDoc => {
+            docs.push(overloadDoc);
+            this.addParamDocs(docs, overloadDoc.parameterDocs);
+          });
+        }
+        if (member instanceof PropertyMemberDoc) {
+          if (member.getAccessor) docs.push(member.getAccessor);
+          if (member.setAccessor) {
+            docs.push(member.setAccessor);
+            this.addParamDocs(docs, member.setAccessor.parameterDocs);
+          }
+        }
       });
+    }
+
+    private addParamDocs(docs: DocCollection, parameters: ParameterDoc[]) {
+      parameters.forEach(parameter => docs.push(parameter));
     }
   }
 

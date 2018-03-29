@@ -1,45 +1,44 @@
 /* tslint:disable:no-bitwise */
-import { ArrayLiteralExpression, CallExpression, Declaration, Decorator, Expression, HeritageClause, ObjectLiteralElement, ObjectLiteralExpression, PropertyAssignment, Symbol, SymbolFlags, SyntaxKind } from 'typescript';
-
-import { FileInfo } from "../services/TsParser/FileInfo";
-import { getAccessibility } from "../services/TsParser/getAccessibility";
+/* tslint:disable:max-classes-per-file */
+import { Declaration, ExpressionWithTypeArguments, HeritageClause, Symbol, SymbolFlags, SyntaxKind, symbolName } from 'typescript';
 import { getDecorators, ParsedDecorator } from "../services/TsParser/getDecorators";
-import { getTypeParametersText } from '../services/TsParser/getTypeParametersText';
 import { getTypeText } from '../services/TsParser/getTypeText';
 
 import { ContainerExportDoc } from './ContainerExportDoc';
-import { ExportDoc } from './ExportDoc';
-import { MemberDoc } from './MemberDoc';
-import { MethodMemberDoc } from './MethodMemberDoc';
 import { ModuleDoc } from './ModuleDoc';
-import { PropertyMemberDoc } from './PropertyMemberDoc';
+
+export class HeritageInfo {
+  symbol: Symbol | undefined;
+  doc: ClassLikeExportDoc | undefined;
+  constructor(public type: ExpressionWithTypeArguments, public text: string) {}
+}
 
 /**
  * Interfaces and classes are "class-like", in that they can contain members, heritage, type parameters and decorators
  */
 export abstract class ClassLikeExportDoc extends ContainerExportDoc {
-  decorators = getDecorators(this.declaration);
-  extendsClauses: string[] = [];
-  implementsClauses: string[] = [];
+  decorators: ParsedDecorator[] | undefined = getDecorators(this.declaration);
+  extendsClauses: HeritageInfo[] = [];
+  implementsClauses: HeritageInfo[] = [];
+  descendants: ClassLikeExportDoc[] = [];
   typeParams = this.computeTypeParams();
 
   constructor(
       moduleDoc: ModuleDoc,
       symbol: Symbol,
       declaration: Declaration,
-      basePath: string,
-      namespacesToInclude: string[]) {
-        super(moduleDoc, symbol, declaration, basePath, namespacesToInclude);
-        this.computeHeritage();
+      aliasSymbol?: Symbol) {
+        super(moduleDoc, symbol, declaration, aliasSymbol);
+        this.computeHeritageClauses();
         this.addAliases();
       }
 
   private computeTypeParams() {
     if (this.symbol.members) {
       const typeParams: string[] = [];
-      this.symbol.members.forEach((member, name) => {
+      this.symbol.members.forEach((member) => {
         if (member.getFlags() & SymbolFlags.TypeParameter) {
-          typeParams.push(name);
+          typeParams.push(symbolName(member));
         }
       });
       if (typeParams.length) return `<${typeParams.join(', ')}>`;
@@ -55,24 +54,24 @@ export abstract class ClassLikeExportDoc extends ContainerExportDoc {
     }
   }
 
-  private computeHeritage() {
-    // Collect up all the heritage clauses from each declarartion
+  private computeHeritageClauses() {
+    // Collect up all the heritage clauses from each declaration
     // (interfaces can have multiple declarations, which are merged, each with their own heritage)
-    this.symbol.getDeclarations().forEach(declaration => {
-      const heritageClauses = getHeritage(declaration);
-      if (heritageClauses) {
-        heritageClauses.forEach(heritageClause => {
-          if (heritageClause.token === SyntaxKind.ExtendsKeyword) {
-            this.extendsClauses = this.extendsClauses.concat(heritageClause.types.map(heritageType => getTypeText(heritageType, this.namespacesToInclude)));
-          } else {
-            this.implementsClauses = this.implementsClauses.concat(heritageClause.types.map(heritageType => getTypeText(heritageType, this.namespacesToInclude)));
-          }
-        });
-      }
+    this.symbol.getDeclarations()!.forEach(declaration => {
+      getHeritage(declaration).forEach(clause => {
+      // Now process these clauses to find each "extends" and "implements" clause
+        if (clause.token === SyntaxKind.ExtendsKeyword) {
+          this.extendsClauses = this.extendsClauses.concat(
+            clause.types.map(heritageType => new HeritageInfo(heritageType, getTypeText(heritageType))));
+        } else {
+          this.implementsClauses = this.implementsClauses.concat(
+            clause.types.map(heritageType => new HeritageInfo(heritageType, getTypeText(heritageType))));
+        }
+      });
     });
   }
 }
 
 function getHeritage(declaration: Declaration): HeritageClause[] {
-  return (declaration as any).heritageClauses;
+  return (declaration as any).heritageClauses || [];
 }

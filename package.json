@@ -1,6 +1,6 @@
 {
   "name": "dgeni-packages",
-  "version": "0.20.0-rc.5",
+  "version": "0.26.0",
   "description": "A collection of dgeni packages for generating documentation from source code",
   "scripts": {
     "test": "yarn build && node test.js",
@@ -58,7 +58,8 @@
     "source-map-support": "^0.4.15",
     "spdx-license-list": "^2.1.0",
     "stringmap": "^0.2.2",
-    "typescript": "^2.3.4"
+    "typescript": "~2.7.1",
+    "urlencode": "^1.1.0"
   },
   "devDependencies": {
     "@types/glob": "^5.0.30",
@@ -108,6 +109,10 @@
     "Rod Leviton <rod@rodleviton.com>",
     "Paul Gschwendtner <paulgschwendtner@gmail.com>",
     "Hagen Schulze <hagen.schulze@nextlabel.de>",
-    "Nick Horvath <nhorvath@gmail.com>"
+    "Nick Horvath <nhorvath@gmail.com>",
+    "Georgios Kalpakas <kalpakas.g@gmail.com>",
+    "Jicheng Li <deemstone@gmail.com>",
+    "Christoffer Hasselberg <stofolus@gmail.com>",
+    "David Herges <dherges@users.noreply.github.com>"
   ]
 }

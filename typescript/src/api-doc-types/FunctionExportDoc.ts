@@ -1,29 +1,34 @@
 import { Declaration, Symbol } from 'typescript';
 import { getDeclarationTypeText } from '../services/TsParser/getDeclarationTypeText';
-import { getParameters } from '../services/TsParser/getParameters';
-import { ExportDoc } from './ExportDoc';
 import { ModuleDoc } from './ModuleDoc';
 import { OverloadInfo } from './OverloadInfo';
+import { getParameters, ParameterContainer } from './ParameterContainer';
+import { ParameterDoc } from './ParameterDoc';
+import { ParameterizedExportDoc } from './ParameterizedExportDoc';
 
-export class FunctionExportDoc extends ExportDoc {
+export class FunctionExportDoc extends ParameterizedExportDoc implements ParameterContainer {
   docType = 'function';
-  overloads = this.symbol.getDeclarations()
+
+  type = getDeclarationTypeText(this.declaration);
+
+  overloads = this.symbol.getDeclarations()!
     .filter(declaration => declaration !== this.declaration)
     .map(declaration => new OverloadInfo(this, declaration));
-  parameters = getParameters(this.declaration, this.namespacesToInclude);
-  type = getDeclarationTypeText(this.declaration, this.namespacesToInclude);
+
+  readonly parameterDocs: ParameterDoc[] = getParameters(this);
+  readonly parameters = this.parameterDocs.map(p => p.paramText);
 
   constructor(
-      moduleDoc: ModuleDoc,
+      public containerDoc: ModuleDoc,
       symbol: Symbol,
-      basePath: string,
-      namespacesToInclude: string[]) {
-    super(moduleDoc, symbol, findRealDeclaration(symbol.getDeclarations()), basePath, namespacesToInclude);
+      aliasSymbol?: Symbol) {
+    super(containerDoc, symbol, findRealDeclaration(symbol.getDeclarations()!), aliasSymbol);
   }
 
 }
 
 function findRealDeclaration(declarations: Declaration[]) {
-  // For this container doc, we use the declaration that has a body or just the first given declaration
+  // For this container doc, we use the declaration that has a body or just the first given
+  // declaration
   return declarations.find(declaration => !!(declaration as any).body) || declarations[0];
 }

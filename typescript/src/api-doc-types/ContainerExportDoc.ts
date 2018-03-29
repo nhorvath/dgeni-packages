@@ -1,11 +1,18 @@
 /* tslint:disable:no-bitwise */
-import { FunctionLikeDeclaration, Map, Symbol, SymbolFlags } from 'typescript';
-import { FileInfo } from "../services/TsParser/FileInfo";
+import {
+    FunctionLikeDeclaration,
+    GetAccessorDeclaration,
+    Map,
+    SetAccessorDeclaration,
+    Symbol,
+    SymbolFlags,
+    SyntaxKind,
+    UnderscoreEscapedMap
+} from 'typescript';
 import { getAccessibility } from "../services/TsParser/getAccessibility";
-import { ExportDoc } from './ExportDoc' ;
-import { MemberDoc } from './MemberDoc' ;
+import { ExportDoc } from './ExportDoc';
+import { MemberDoc } from './MemberDoc';
 import { MethodMemberDoc } from './MethodMemberDoc';
-import { ModuleDoc } from './ModuleDoc';
 import { PropertyMemberDoc } from './PropertyMemberDoc';
 
 const MethodMemberFlags = SymbolFlags.Method |
@@ -25,7 +32,7 @@ const MembersToIgnoreFlags = SymbolFlags.Prototype | SymbolFlags.TypeParameter |
 export abstract class ContainerExportDoc extends ExportDoc {
   members: MemberDoc[] = [];
 
-  protected getMemberDocs(members: Map<Symbol>, hidePrivateMembers: boolean, isStatic: boolean) {
+  protected getMemberDocs(members: UnderscoreEscapedMap<Symbol>, hidePrivateMembers: boolean) {
     const memberDocs: MemberDoc[] = [];
     members.forEach(member => {
       const flags = member.getFlags();
@@ -38,22 +45,34 @@ export abstract class ContainerExportDoc extends ExportDoc {
 
       const overloads: MethodMemberDoc[] = [];
       let memberDoc: MemberDoc|null = null;
+      let getAccessorDeclaration: GetAccessorDeclaration | null = null;
+      let setAccessorDeclaration: SetAccessorDeclaration | null = null;
 
-      for (const declaration of member.getDeclarations()) {
+      for (const declaration of member.getDeclarations()!) {
         if (flags & MethodMemberFlags) {
-          if ((declaration as FunctionLikeDeclaration).body) {
+          if (declaration.kind === SyntaxKind.GetAccessor) {
+            getAccessorDeclaration = declaration as GetAccessorDeclaration;
+          } else if (declaration.kind === SyntaxKind.SetAccessor) {
+            setAccessorDeclaration = declaration as SetAccessorDeclaration;
+          } else if ((declaration as FunctionLikeDeclaration).body) {
             // This is the "real" declaration of the method
-            memberDoc = new MethodMemberDoc(this, member, declaration, this.basePath, this.namespacesToInclude, isStatic, overloads);
+            memberDoc = new MethodMemberDoc(this, member, declaration, overloads);
           } else {
             // This is an overload signature of the method
-            overloads.push(new MethodMemberDoc(this, member, declaration, this.basePath, this.namespacesToInclude, isStatic, overloads));
+            overloads.push(new MethodMemberDoc(this, member, declaration, overloads));
           }
         } else if (flags & PropertyMemberFlags) {
-          memberDoc = new PropertyMemberDoc(this, member, declaration, this.basePath, this.namespacesToInclude, isStatic);
+          memberDoc = new PropertyMemberDoc(this, member, declaration, null, null);
         } else {
           throw new Error(`Unknown member type for member ${member.name}`);
         }
       }
+
+      // If at least one of the declarations was an accessor then the whole member is a property.
+      if (getAccessorDeclaration || setAccessorDeclaration) {
+        memberDoc = new PropertyMemberDoc(this, member, null, getAccessorDeclaration, setAccessorDeclaration);
+      }
+
       // If there is no member doc then we are in an interface or abstract class and we just take the first overload
       // as the primary one.
       memberDocs.push(memberDoc || overloads.shift()!);

@@ -1,6 +1,5 @@
-import { Declaration, Map, Symbol } from 'typescript';
+import { Declaration, Symbol } from 'typescript';
 import { ClassLikeExportDoc } from '../api-doc-types/ClassLikeExportDoc';
-import { MethodMemberDoc } from '../api-doc-types/MethodMemberDoc';
 import { ModuleDoc } from '../api-doc-types/ModuleDoc';
 
 /**
@@ -12,10 +11,9 @@ export class InterfaceExportDoc extends ClassLikeExportDoc {
   constructor(
     moduleDoc: ModuleDoc,
     symbol: Symbol,
-    basePath: string,
-    namespacesToInclude: string[]) {
-      super(moduleDoc, symbol, symbol.valueDeclaration || symbol.getDeclarations()[0]!, basePath, namespacesToInclude);
-      if (symbol.members) this.members = this.getMemberDocs(symbol.members, true, false);
-      this.additionalDeclarations = symbol.getDeclarations().filter(declaration => declaration !== this.declaration);
+    aliasSymbol?: Symbol) {
+      super(moduleDoc, symbol, symbol.valueDeclaration || symbol.getDeclarations()![0]!, aliasSymbol);
+      if (symbol.members) this.members = this.getMemberDocs(symbol.members, true);
+      this.additionalDeclarations = symbol.getDeclarations()!.filter(declaration => declaration !== this.declaration);
     }
 }

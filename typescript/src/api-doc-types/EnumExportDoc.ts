@@ -12,13 +12,11 @@ export class EnumExportDoc extends ContainerExportDoc {
   constructor(
     moduleDoc: ModuleDoc,
     symbol: Symbol,
-    basePath: string,
-    namespacesToInclude: string[],
-  ) {
-    super(moduleDoc, symbol, symbol.valueDeclaration!, basePath, namespacesToInclude);
-    this.additionalDeclarations = symbol.getDeclarations().filter(declaration => declaration !== this.declaration);
+    aliasSymbol?: Symbol) {
+    super(moduleDoc, symbol, symbol.valueDeclaration!, aliasSymbol);
+    this.additionalDeclarations = symbol.getDeclarations()!.filter(declaration => declaration !== this.declaration);
     if (symbol.exports) {
-      this.members = this.getMemberDocs(symbol.exports, true, false);
+      this.members = this.getMemberDocs(symbol.exports, true);
     }
   }
 }

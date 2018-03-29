@@ -1,27 +1,31 @@
 /* tslint:disable:no-bitwise */
-import { Declaration, Symbol, SymbolFlags } from 'typescript';
-import { getParameters } from '../services/TsParser/getParameters';
+import { Declaration, Symbol } from 'typescript';
 import { getTypeParametersText } from '../services/TsParser/getTypeParametersText';
 import { ContainerExportDoc } from './ContainerExportDoc';
 import { MemberDoc } from './MemberDoc';
+import { getParameters, ParameterContainer } from './ParameterContainer';
+import { ParameterDoc } from './ParameterDoc';
 
-export class MethodMemberDoc extends MemberDoc {
-  readonly parameters = getParameters(this.declaration, this.namespacesToInclude);
+export class MethodMemberDoc extends MemberDoc implements ParameterContainer {
   readonly name = this.computeName();
+  readonly parameterDocs: ParameterDoc[] = getParameters(this);
+  readonly parameters = this.parameterDocs.map(p => p.paramText);
   readonly anchor = this.computeAnchor();
-  readonly id = `${this.containerDoc.id}.${this.anchor})`;
+  readonly id = `${this.containerDoc.id}.${this.anchor}`;
   readonly aliases = this.computeAliases();
-  readonly typeParameters = getTypeParametersText(this.declaration, this.namespacesToInclude);
+  readonly typeParameters = getTypeParametersText(this.declaration);
 
   constructor(
     containerDoc: ContainerExportDoc,
     symbol: Symbol,
     declaration: Declaration,
-    basePath: string,
-    namespacesToInclude: string[],
-    isStatic: boolean,
     public overloads: MethodMemberDoc[] = []) {
-    super(containerDoc, symbol, declaration, basePath, namespacesToInclude, isStatic);
+    super(containerDoc, symbol, declaration);
+    // fix up parameter ids and aliases, now that we have computed the id for this doc
+    this.parameterDocs.forEach(param => {
+      param.id = `${this.id}~${param.name}`;
+      param.aliases = this.aliases.map(alias => `${alias}~${param.name}`);
+    });
   }
 
   private computeName() {
@@ -34,8 +38,9 @@ export class MethodMemberDoc extends MemberDoc {
   private computeAnchor() {
     // if the member is a "call" type then it has no name
     const anchorName = this.name.trim() || 'call';
-    // if there is more than one declaration then we need to include the param list to distinguish them
-    return encodeURI(this.symbol.getDeclarations().length === 1 ? anchorName : `${anchorName}(${this.parameters.join(', ')})`);
+    const overloadIndex = this.symbol.getDeclarations()!.indexOf(this.declaration);
+    // if there is more than one declaration then we need to distinguish them
+    return `${anchorName}${overloadIndex > 0 ? `_${overloadIndex}` : ''}()`;
   }
 
   private computeAliases() {

@@ -1,18 +1,17 @@
 import { Declaration, Symbol, SyntaxKind } from 'typescript';
 import { getDeclarationTypeText } from '../services/TsParser/getDeclarationTypeText';
-import { ExportDoc } from './ExportDoc';
 import { ModuleDoc } from './ModuleDoc';
+import { ParameterizedExportDoc } from './ParameterizedExportDoc';
 
-export class TypeAliasExportDoc extends ExportDoc {
+export class TypeAliasExportDoc extends ParameterizedExportDoc {
   docType = 'type-alias';
-  typeDefinition = getDeclarationTypeText(this.declaration, this.namespacesToInclude);
+  typeDefinition = getDeclarationTypeText(this.declaration);
 
   constructor(
-      moduleDoc: ModuleDoc,
-      exportSymbol: Symbol,
-      basePath: string,
-      namespacesToInclude: string[]) {
-    super(moduleDoc, exportSymbol, getTypeAliasDeclaration(exportSymbol.getDeclarations()), basePath, namespacesToInclude);
+    moduleDoc: ModuleDoc,
+    exportSymbol: Symbol,
+    aliasSymbol?: Symbol) {
+    super(moduleDoc, exportSymbol, getTypeAliasDeclaration(exportSymbol.getDeclarations()!), aliasSymbol);
   }
 }
 

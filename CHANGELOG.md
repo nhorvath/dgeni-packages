@@ -1,5 +1,302 @@
 # Changelog
 
+# 0.26.0 2 March 2018
+
+## Features
+
+* **typescript**:
+ - add `isAbstract` properties to classes and members	315b6ceb
+ - use TypeScript v2.7 to parse the TS source files	85ffe3a0
+
+## BREAKING CHANGES:
+
+The new version of TypeScript has better handling for specially named members such
+as `__constructor` and `__call`. To support this the TypeScript API introduced a new
+type `__String` for holding escaped versions of these strings.
+
+This makes is much safer in case a member name collided, but it also introduces a
+breaking change to the TypeScript AST public interface.
+
+This will not affect developers using the `typescript` package unless they are trying
+to interact with the TS AST directly, or they were expected to interact with escaped forms
+of special names, such as `__esModule`, which is `___esModule` in its escaped form.
+
+
+# 0.25.0 28 February 2018
+
+## Fixes
+
+* **typescript**:
+  - remove `namespacesToInclude` feature  6a893df3
+  - give `path` and `outputPath` initial values c5f3049f
+
+## Breaking Change
+
+The `namespacesToInclude` service has been removed from
+the package. Now when rendering types full qualified names are
+always rendered and no namespaces are stripped.
+
+If you relied on this then you should implement a processor to
+search for these rendered types and strip them.
+
+
+# 0.24.3 25 February 2018
+
+## Features
+
+* **typescript**: expose `defaultValue` information on ParameterDocs	ba8f57fa
+
+
+# 0.24.2 24 Febrary 2018
+
+## Features
+* **typescript**:
+  - expose `isOptional` information on ParameterDocs  39ad2feb
+  - create `BaseApiDoc` class                         9586f881
+
+## Fixes
+* **typescript**:
+  - `ParameterDoc` is a type of `BaseApiDoc`, not `ExportDoc` d00b3ed2
+  - only use unix style line endings when rendering code      ef1f83c9
+
+
+# 0.24.1 7 February 2018
+
+## Fixes
+* **jsdoc**: braces in the description are not jsdoc types	35763aafa
+* **typescript**: fallback to decorators from set accessor	3a4e56855
+* **jsdoc**: handle import statements in code name matching	5db8fc90f
+
+
+# 0.24.0 26 January 2018
+
+## Fixes
+* **typescript**: align default path and id templates	0ff52e2b
+* **typescript**: do not encode anchors for member API docs	7cad9780
+* **base**: checkAnchorLinksProcessor now copes with encoded chars	f7f6f589
+
+## BREAKING CHANGE
+
+Anchors to member API docs, whch are accessed via `doc.anchor` are no
+longer URL encoded. You should do this in your template if that is required.
+
+* Before: `<a href="{$ doc.anchor $}">...</a>`
+* After: `<a href="{$ doc.anchor | urlencode $}">...</a>`
+
+
+# 0.23.0 17 January 2018
+
+## Fixes
+
+* **typescript**:
+  - show proper name for aliased exports	f7034143
+
+## Features
+
+* **jsdoc**:
+  - improve support for named exports in the codeName service	45c28b61
+* **typescript**:
+  - merge `@param` descriptions into `ParameterDoc`s	af7f5213
+  - process parameters as docs	4d04d8f9
+  - move helpers to ModuleDoc to simplify API doc constructors	a776355c
+
+## BREAKING CHANGE
+
+The constructor signatures for API API docs have changed. You no longer need to pass
+the `basePath`, `namespacesToInclude` or `typeChecker` to any API doc constructor
+except for the `ModuleDoc`. All API docs now get hold of these values from their
+containing `ModuleDoc`.
+
+Generally this should not affect users of dgeni-packages since it is not expected
+that API doc classes should be instantiated directly.
+
+
+# 0.22.1 23 November 2017
+
+## Fixes
+
+* **typescript**: remove comments from re-rendered code	0be17b9a
+
+# 0.22.0 9 October 2017
+
+## Fixes
+
+* **typescript**: handle property accessors correctly	f72b69e5f
+
+## BREAKING CHANGE
+
+To support the handling of get and set accessors, there are new docTypes
+"get-accessor-info" and "set-accessor-info", which need templates.
+
+# 0.21.6 9 October 2017
+
+## Reverts
+
+* **typescript**: handle property accessors correctly	a4be78add
+
+This change introduced a breaking change, which is that there are new docTypes
+"get-accessor-info" and "set-accessor-info", which need templates.
+
+# 0.21.5 8 October 2017
+
+## Fixes
+
+* **typescript**: handle property accessors correctly	75fafcf7
+
+# 0.21.4 28 September 2017
+
+## Features
+
+* **typescript**:
+  - add isReadonly flag to member docs	62bc5333
+  - include typeParameters in type-alias docs	51d81496
+
+## Fixes
+
+* **typescript**: show both type and initializer on parameters	d677e72a
+
+
+# 0.21.3 22 September 2017
+
+## Features
+
+* **typescript**: track descendants of inherited classes	b64e8519
+
+# 0.21.2 11 September 2017
+
+## Fixes
+
+* **typescript**: do not render comments in decorator arguments	7cfd8021
+
+## Chores
+
+* upgrade to TypeScript 2.4	1d64fcc7
+
+# 0.21.1 4 September 2017
+
+## Features
+
+* **typescript**: support overloaded constructors	ca69213d
+
+## Bug Fixes
+
+* **typescript**: fix possibly null references	463ef5cf
+
+# 0.21.0 4 September 2017
+
+## Features
+* **typescript**: reference `extands` and `implements` ancestor info	d7c29603
+
+## BREAKING CHANGES:
+
+Previously, the `doc.implementsClauses` and `doc.extendsClauses` were arrays
+of strings, describing the text of the clause.
+
+Now, these properties are of type `HeritageInfo`:
+
+```typescript
+class HeritageInfo {
+  symbol: Symbol | undefined;
+  doc: ClassLikeExportDoc | undefined;
+  type: ExpressionWithTypeArguments;
+  text: string;
+}
+```
+
+where the `text` property holds the value that was previously provided.
+
+You need to change your code/templates to access the text of the heritage
+clause from:
+
+```
+{% for clause in doc.extendsClauses %}{$ clause $}{% endfor %}
+```
+
+to:
+
+```
+{% for clause in doc.extendsClauses %}{$ clause.text $}{% endfor %}
+```
+
+# 0.20.1 16 August 2017
+
+## Features
+* **jsdoc**: add propertyof jsdoc tag	6712e544
+
+## Fixes
+
+* **dgeni**: ensure that dgeni self documenting config works	8052e9e6
+
+
+# 0.20.0 27 July 2017
+
+This is the full release of 0.20.0 - the list of changes below includes all the beta and release candidate changes.
+
+## Features
+
+- **base:** allow checkAnchorLinks to abort processing	eee3e7b1
+- **typescript:**
+  - group function/method overloads together	2155b5ac
+  - provide isCallMember and isNewMember options
+  - split out heritage into extendsClauses and implementsClauses
+  - add `realFilePath`/`realProjectRelativePath` to `FileInfo`	c7d1b54c
+
+## Performance Improvements
+- **nunjucks:** upgrade to v3 and enable caching of templates
+
+## Bug Fixes
+
+- **ngdoc:** pass doc object to createDocMessage	fe98a849	Nick Horvath
+- **typescript:**
+  - add type parameters to function export docs	c2c29270
+  - remove duplicate overload from abstract API doc members	f2c481d1
+  - support startingLine and endingLine properties	32698f30
+  - include specified namespaces in types	dbe99f7b
+  - allow decorators to not be call expressions	e41a392a
+  - implement the CompilerHost.readFile method	4d667ff2
+  - CustomCompilerHost.fileExists should not second guess extensions and base dir	b7b11164
+  - compile files in folders that have file-like names	ee10b835
+  - paths should be case sensitive	5238302b
+  -	compile files in folders that have file-like names
+  - paths to imports are case sensitive
+  - group overloaded exported functions in a single doc
+  - do not assume that members prefixed with `_` are private
+- **base:** checkAnchorLinks should match URL encoded chars
+
+## Breaking Changes
+
+Previously to 0.20.0 the service where you registered namespaces not to strip
+was called `ignoreTypeScriptNamespaces` and took an array of regular expressions.
+
+Now this service is called `namespacesToInclude`, which better reflects its
+purpose. Also it is now an array of strings, since there was little benefit in it
+being a regular expression.
+
+<hr>
+
+The typescript package has been completely rewritten in TypeScript. One benefit of this is that
+typings should be available for the API doc types in your own projects.
+
+Along the way there are some changes to the properties that are attached to the API docs that are
+generated. Here is a list of the things that might affect you:
+
+* Members starting with `_` are no longer considered private. You should filter them out in a
+custom processor if you do not want them to appear in the docs.
+* API docs that have a type, e.g. functions, constants, type aliases, etc used to have a property called
+`returnType` but that did not make sense for non-functions. This property is renamed to `type`.
+* API docs that have heritage, e.g. classes and interfaces, used to have a property called `heritage`,
+which was a string representation containing both "implements" and "extends" clauses. These have now
+been split into two properties `implementsClauses` and `extendsClauses`, which each contain an array
+of strings.
+
+
+# 0.20.0-rc.6  14 July 2017
+
+## Bug Fixes
+
+**typescript:** add type parameters to function export docs	c2c29270
+
+
 # 0.20.0-rc.5  13 July 2017
 
 ## Bug Fixes

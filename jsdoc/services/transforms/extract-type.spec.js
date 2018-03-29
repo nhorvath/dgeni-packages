@@ -11,7 +11,6 @@ describe("extract-type transform", function() {
   });
 
   it("should extract the type from the description", function() {
-
     value = ' {string} paramName - Some description  \n Some more description';
     value = transform(doc, tag, value);
 
@@ -29,5 +28,11 @@ describe("extract-type transform", function() {
     value = '{{x:number, y:number}} paramName - Some description';
     value = transform(doc, tag, value);
     expect(tag.typeList).toEqual(['{x:number, y:number}']);
+  });
+
+  it('should handle braces in the description', () => {
+    value = 'paramName - Some description  \n Some `{ code: block }` in the description';
+    value = transform(doc, tag, value);
+    expect(value).toEqual('paramName - Some description  \n Some `{ code: block }` in the description');
   });
 });

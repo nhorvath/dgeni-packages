@@ -1,4 +1,19 @@
-import { ArrayLiteralExpression, CallExpression, Declaration, Decorator, Expression, ObjectLiteralElement, ObjectLiteralExpression, PropertyAssignment, SyntaxKind } from 'typescript';
+import {
+    ArrayLiteralExpression,
+    CallExpression,
+    Declaration,
+    Decorator,
+    EmitHint,
+    Expression,
+    NodeArray,
+    ObjectLiteralElement,
+    ObjectLiteralElementLike,
+    ObjectLiteralExpression,
+    PropertyAssignment,
+    SyntaxKind
+} from 'typescript';
+import { lineFeedPrinter } from './LineFeedPrinter';
+import { nodeToString } from './nodeToString';
 
 export type ArgumentInfo = string | string[] | { [key: string]: ArgumentInfo };
 
@@ -17,16 +32,17 @@ export function getDecorators(declaration: Declaration) {
       if (callExpression) {
         return {
           argumentInfo: callExpression.arguments.map(argument => parseArgument(argument)),
-          arguments: callExpression.arguments.map(argument => argument.getText()),
+          arguments: callExpression.arguments.map(argument =>
+              lineFeedPrinter.printNode(EmitHint.Expression, argument, declaration.getSourceFile())),
           expression: decorator as Decorator,
           isCallExpression: true,
-          name: callExpression.expression.getText(),
+          name: nodeToString(callExpression.expression),
         };
       } else {
         return {
           expression: decorator as Decorator,
           isCallExpression: false,
-          name: decorator.expression.getText(),
+          name: nodeToString(decorator.expression),
         };
       }
     });
@@ -39,11 +55,11 @@ function getCallExpression(decorator: Decorator) {
   }
 }
 
-function parseProperties(properties: ObjectLiteralElement[]) {
+function parseProperties(properties: NodeArray<ObjectLiteralElementLike>) {
   const result: ArgumentInfo = {};
   properties.forEach(property => {
     if (property.kind === SyntaxKind.PropertyAssignment) {
-      result[property.name!.getText()] = parseArgument((property as PropertyAssignment).initializer);
+      result[nodeToString(property.name!)] = parseArgument((property as PropertyAssignment).initializer);
     }
   });
   return result;
@@ -54,7 +70,7 @@ function parseArgument(argument: Expression): ArgumentInfo {
     return parseProperties((argument as ObjectLiteralExpression).properties);
   }
   if (argument.kind === SyntaxKind.ArrayLiteralExpression) {
-    return (argument as ArrayLiteralExpression).elements.map(element => element.getText());
+    return (argument as ArrayLiteralExpression).elements.map(element => nodeToString(element));
   }
-  return argument.getText();
+  return nodeToString(argument);
 }

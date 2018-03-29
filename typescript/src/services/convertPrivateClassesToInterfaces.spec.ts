@@ -1,11 +1,14 @@
+import { createSourceFile, ScriptTarget } from 'typescript';
 import { DocCollection } from 'dgeni';
 import { ClassExportDoc } from '../api-doc-types/ClassExportDoc';
+import { HeritageInfo } from '../api-doc-types/ClassLikeExportDoc';
 import { convertPrivateClassesToInterfaces } from './convertPrivateClassesToInterfaces';
+import { FileInfo } from './TsParser/FileInfo';
 
 describe('convertPrivateClassesToInterfaces', () => {
   const basePath = 'a/b/c';
-  const moduleDoc = { id: 'someModule' } as any;
-  const mockDeclaration: any = { getSourceFile: () => ({ fileName: 'x/y/z', text: 'blah blah' }) };
+  const moduleDoc = { id: 'someModule', basePath } as any;
+  const mockDeclaration: any = { getSourceFile: () => createSourceFile('x/y/z', 'blah blah', ScriptTarget.ES5), pos: 0, end: 0 };
   const classSymbol: any = {
     getDeclarations: () => [mockDeclaration],
     name: 'privateClass',
@@ -16,7 +19,9 @@ describe('convertPrivateClassesToInterfaces', () => {
   let docs: DocCollection;
 
   beforeEach(() => {
-    classDoc = new ClassExportDoc(moduleDoc, classSymbol, basePath, true, []);
+    spyOn(FileInfo.prototype, 'getRealFilePath').and.callFake((filePath: string) => filePath);
+
+    classDoc = new ClassExportDoc(moduleDoc, classSymbol);
     classDoc.constructorDoc = { internal: true } as any;
     docs = [classDoc];
   });
@@ -33,9 +38,10 @@ describe('convertPrivateClassesToInterfaces', () => {
   });
 
   it('should convert the heritage since interfaces use `extends` not `implements`', () => {
-    classDoc.implementsClauses = ['parentInterface'];
+    const heritage = new HeritageInfo({} as any, '');
+    classDoc.implementsClauses = [heritage];
     convertPrivateClassesToInterfaces(docs, false);
-    expect(docs[0].extendsClauses).toEqual(['parentInterface']);
+    expect(docs[0].extendsClauses).toEqual([heritage]);
   });
 
   it('should add new injectable reference types, if specified, to the passed in collection', () => {
